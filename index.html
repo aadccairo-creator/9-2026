@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>اختبار إدارة</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Baloo 2', 'Comic Sans MS', 'Trebuchet MS', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, #ff6b6b 0%, #feca57 45%, #48dbfb 75%, #ff9ff3 100%);
+  background-size: 300% 300%;
+  animation: bgshift 12s ease infinite;
+  min-height: 100vh; padding: 20px; color: #2d2d2d;
+}
+@keyframes bgshift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+.container { max-width: 700px; margin: 0 auto; }
+.header { text-align: center; color: #fff; padding: 26px 20px; }
+.header h1 { font-size: 30px; font-weight: 800; margin-bottom: 6px; text-shadow: 0 3px 0 rgba(0,0,0,0.15); }
+.header .meta { font-size: 14px; opacity: 0.95; font-weight: 600; }
+.progress-bar { background: rgba(255,255,255,0.35); border-radius: 20px; height: 12px; margin: 18px 0; overflow: hidden; border: 2px solid rgba(255,255,255,0.5); }
+.progress-fill { background: #fff; height: 100%; width: 0%; transition: width 0.4s ease; border-radius: 20px; }
+.question { background: #fff; border-radius: 24px; padding: 28px; box-shadow: 0 14px 0 rgba(0,0,0,0.12); display: none; border: 4px solid #2d2d2d; position: relative; overflow: hidden; }
+.question.active { display: block; }
+.q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; font-size: 13px; }
+.q-number { font-weight: 800; color: #ff6b6b; background: #fff0f0; padding: 6px 12px; border-radius: 20px; }
+.streak { font-weight: 800; color: #e67e22; }
+.streak:empty { display: none; }
+.q-text { font-size: 19px; font-weight: 700; line-height: 1.5; margin-bottom: 22px; color: #222; }
+.options { display: flex; flex-direction: column; gap: 12px; }
+.option-wrapper { display: flex; flex-direction: column; }
+.option {
+  display: flex; align-items: center; gap: 12px; padding: 16px 18px;
+  border: 3px solid #2d2d2d; border-radius: 18px; background: #fffdf5;
+  cursor: pointer; transition: transform 0.12s, background 0.2s; text-align: left; font-size: 15px; font-weight: 600; width: 100%;
+  box-shadow: 0 4px 0 #2d2d2d;
+}
+[dir="rtl"] .option { text-align: right; flex-direction: row-reverse; }
+.option:hover:not(.disabled) { transform: translateY(-2px); background: #fff7e0; }
+.option:active:not(.disabled) { transform: translateY(2px); box-shadow: 0 2px 0 #2d2d2d; }
+.option.selected { background: #eef2ff; }
+.option.correct { border-color: #22c55e; background: #dcfce7; }
+.option.incorrect { border-color: #ef4444; background: #fee2e2; }
+.option.disabled { cursor: default; }
+.option.show-correct { border-color: #22c55e; background: #dcfce7; }
+.opt-emoji { font-size: 20px; flex-shrink: 0; }
+.opt-text { line-height: 1.5; }
+
+.option-feedback { margin: 6px 0 4px 4px; padding: 12px 16px; border-radius: 14px; font-size: 14px; line-height: 1.5; border: 2px dashed transparent; }
+.option-feedback.correct-feedback { background: #dcfce7; border-color: #22c55e; }
+.option-feedback.incorrect-feedback { background: #fef3f2; border-color: #fca5a5; }
+.feedback-status { font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.feedback-status.correct { color: #166534; }
+.feedback-status.incorrect { color: #991b1b; }
+.feedback-rationale { color: #444; }
+
+.hint-box { margin: 12px 0; border-radius: 16px; overflow: hidden; background: #fffbeb; border: 2px solid #fcd34d; }
+.hint-toggle { width: 100%; padding: 10px 16px; background: transparent; border: none; cursor: pointer; font-size: 14px; font-weight: 700; color: #92400e; text-align: left; display: flex; align-items: center; gap: 8px; }
+.hint-toggle:hover { background: #fef3c7; }
+.hint-content { padding: 0 16px; max-height: 0; overflow: hidden; transition: max-height 0.3s, padding 0.3s; font-size: 14px; color: #78350f; line-height: 1.5; }
+.hint-box.show .hint-content { padding: 0 16px 12px; max-height: 200px; }
+
+.next-btn {
+  margin-top: 20px; width: 100%; padding: 15px;
+  background: #ff6b6b; color: #fff; border: 3px solid #2d2d2d;
+  border-radius: 18px; font-size: 16px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 5px 0 #2d2d2d; transition: transform 0.12s;
+}
+.next-btn:hover { transform: translateY(-2px); }
+.next-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #2d2d2d; }
+.hidden { display: none !important; }
+
+.results { background: #fff; border-radius: 24px; padding: 40px; text-align: center; box-shadow: 0 14px 0 rgba(0,0,0,0.12); border: 4px solid #2d2d2d; display: none; }
+.results.active { display: block; }
+.results h2 { font-size: 30px; margin-bottom: 6px; color: #333; font-weight: 800; }
+.stars { font-size: 40px; margin: 14px 0; letter-spacing: 4px; }
+.results .score { font-size: 60px; font-weight: 800; color: #ff6b6b; margin: 10px 0; }
+.results .score-text { font-size: 17px; color: #666; margin-bottom: 26px; font-weight: 600; }
+.restart-btn {
+  padding: 15px 40px; background: #48dbfb; color: #103a45; border: 3px solid #2d2d2d;
+  border-radius: 18px; font-size: 16px; font-weight: 800; cursor: pointer; box-shadow: 0 5px 0 #2d2d2d;
+}
+.restart-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #2d2d2d; }
+
+.confetti-piece { position: fixed; top: -10px; width: 8px; height: 14px; opacity: 0.9; pointer-events: none; z-index: 999; animation: fall linear forwards; }
+@keyframes fall { to { transform: translateY(110vh) rotate(540deg); opacity: 0.3; } }
+
+.math, .math-block { font-family: "Cambria Math", "Times New Roman", Times, serif; font-style: italic; }
+.math-block { display: block; text-align: center; margin: 10px 0; font-size: 110%; }
+.frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 3px; font-size: 0.9em; }
+.frac-num { border-bottom: 1px solid currentColor; padding: 0 4px 2px; line-height: 1.2; }
+.frac-den { padding: 2px 4px 0; line-height: 1.2; }
+.sqrt { white-space: nowrap; }
+.sqrt-content { border-top: 1px solid currentColor; padding: 0 3px; margin-left: 2px; }
+sup, sub { font-size: 0.75em; }
+sup { vertical-align: super; }
+sub { vertical-align: sub; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🎉 اختبار إدارة</h1>
+    <div class="meta">10 أسئلة</div>
+    <div class="progress-bar"><div class="progress-fill"></div></div>
+  </div>
+  <div id="quiz-container">
+        <div class="question" data-index="0">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 1 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">إيه هو الوصف الأدق لسلطة المدير الفني في الهيكل التنظيمي للاتحاد؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">فكر في الفرق بين اللي بيحط الرؤية والقرار (اللجنة) واللي بيطبقها في الملعب.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="المدير الفني له دور تنفيذي مباشر ومتابعة ميدانية، مش مجرد تقديم نصيحة.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">سلطة استشارية ملوش دخل بالقرارات</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المدير الفني له دور تنفيذي مباشر ومتابعة ميدانية، مش مجرد تقديم نصيحة.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="القوانين الدولية للعبة هي اختصاص الاتحاد الدولي، مش المدير الفني الوطني.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">سلطة تشريعية بتحدد قوانين اللعبة</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">القوانين الدولية للعبة هي اختصاص الاتحاد الدولي، مش المدير الفني الوطني.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="رغم وجود مهام إدارية، إلا أن جوهر عمله فني وتدريبي في المقام الأول.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">مسؤول عن الشؤون المالية والإدارية فقط</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">رغم وجود مهام إدارية، إلا أن جوهر عمله فني وتدريبي في المقام الأول.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="true" data-rationale="المدير الفني هو المسؤول عن تنفيذ قرارات وتوصيات لجنة المنتخبات على أرض الواقع مع المدربين.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">أعلى سلطة تنفيذية في الجهاز الفني</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المدير الفني هو المسؤول عن تنفيذ قرارات وتوصيات لجنة المنتخبات على أرض الواقع مع المدربين.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="1">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 2 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">في المنظومة الاحترافية، المدرب أو مساعد المدرب المفروض يتواصل مع مين بشكل مباشر؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">التدرج الوظيفي هو أساس أي منظومة ناجحة عشان ميبقاش فيه ضغط على شخص واحد.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="true" data-rationale="التدرج الإداري بيتطلب إن المدرب يرجع لمدير تخصصه الأول، ومدير التخصص هو اللي بيرفع للمدير الفني.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">مدير التخصص (زي رئيس جهاز السرعة)</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">التدرج الإداري بيتطلب إن المدرب يرجع لمدير تخصصه الأول، ومدير التخصص هو اللي بيرفع للمدير الفني.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="التواصل المباشر مع رئيس الاتحاد بيتخطى التسلسل الإداري الفني وبيعمل فوضى في الإدارة.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">رئيس الاتحاد مباشرة</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">التواصل المباشر مع رئيس الاتحاد بيتخطى التسلسل الإداري الفني وبيعمل فوضى في الإدارة.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="اللجنة الأولمبية جهة خارجية بالنسبة للهيكل الداخلي الفني للاتحاد.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">اللجنة الأولمبية</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">اللجنة الأولمبية جهة خارجية بالنسبة للهيكل الداخلي الفني للاتحاد.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="المدير الفني العام بيتعامل مع رؤساء التخصصات لضمان انسيابية العمل وتوزيع المهام.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">المدير الفني العام فوراً</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المدير الفني العام بيتعامل مع رؤساء التخصصات لضمان انسيابية العمل وتوزيع المهام.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="2">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 3 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">ليه مركز الموهوبين (<span class="math">Talent Identification Center</span>) بيعتبر من أخطر وأهم مسؤوليات المدير الفني؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">فكر في فكرة &quot;البذرة&quot; اللي بنزرعها عشان نحصدها بعد سنين.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="true" data-rationale="اختيار الموهوبين بشكل صح هو اللي بيضمن استمرارية نجاح المنتخبات على المدى الطويل.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">لأنه المصدر الأساسي لنواة المنتخبات الوطنية في المستقبل</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">اختيار الموهوبين بشكل صح هو اللي بيضمن استمرارية نجاح المنتخبات على المدى الطويل.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="المهام الاجتماعية مش من صلب اختصاصات المدير الفني الفنية.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">عشان هو المسؤول عن تنظيم الحفلات</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المهام الاجتماعية مش من صلب اختصاصات المدير الفني الفنية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="بالعكس، مراكز الموهوبين بتحتاج مدربين متخصصين في الفئات العمرية الصغيرة.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">عشان بيقلل عدد المدربين في الاتحاد</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">بالعكس، مراكز الموهوبين بتحتاج مدربين متخصصين في الفئات العمرية الصغيرة.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="مركز الموهوبين بيركز على الأعمار الصغيرة لاكتشافهم بدري، مش فئة النخبة الجاهزة.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">لأنه بيختص بتدريب فئة الرجال فقط</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">مركز الموهوبين بيركز على الأعمار الصغيرة لاكتشافهم بدري، مش فئة النخبة الجاهزة.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="3">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 4 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">إيه هي أهم مهارة لازم تتوفر في المدير الفني عشان يحقق أهداف طويلة المدى؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">المدير الفني هو &quot;مهندس&quot; العملية التدريبية اللي بيشوف الصورة من فوق.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="الإعلام له لجنته الخاصة، والمدير الفني تركيزه لازم يكون على تطوير الأداء.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">إجادة التصوير الفوتوغرافي للاعبين</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">الإعلام له لجنته الخاصة، والمدير الفني تركيزه لازم يكون على تطوير الأداء.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="true" data-rationale="بدون رؤية لـ $4$ أو $8$ سنين قدام، المدير الفني مش هيقدر يوصل لمنصات التتويج العالمية.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">التخطيط الاستراتيجي والرؤية المستقبلية</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">بدون رؤية لـ <span class="math">4</span> أو <span class="math">8</span> سنين قدام، المدير الفني مش هيقدر يوصل لمنصات التتويج العالمية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="دي مهمة فنية لوجستية بسيطة مش هي اللي بتحدد نجاح المنظومة الفنية.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">القدرة على إصلاح الأدوات الرياضية بنفسه</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">دي مهمة فنية لوجستية بسيطة مش هي اللي بتحدد نجاح المنظومة الفنية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="المدير الفني مش مطلوب منه ينافس كلاعب، مهاراته لازم تكون قيادية وفكرية.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">القوة البدنية العالية</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المدير الفني مش مطلوب منه ينافس كلاعب، مهاراته لازم تكون قيادية وفكرية.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="4">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 5 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">مين المسؤول عن وضع التفاصيل الدقيقة داخل الخطة السنوية (زي الوحدات التدريبية اليومية)؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">فكر في الشخص اللي موجود في الملعب كل يوم مع اللاعب.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="الطبيب بيقدم توصيات طبية، لكنه مش هو اللي بيصمم الأحمال التدريبية.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">طبيب الفريق</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">الطبيب بيقدم توصيات طبية، لكنه مش هو اللي بيصمم الأحمال التدريبية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="المدير الفني بيحط الخطوط العريضة والأهداف العامة، لكن التفاصيل مهمة المدربين.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">المدير الفني العام وحده</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المدير الفني بيحط الخطوط العريضة والأهداف العامة، لكن التفاصيل مهمة المدربين.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="السكرتير دوره تنظيمي وتوثيقي، ملوش علاقة بالجانب الفني التدريبي.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">السكرتير الإداري للاتحاد</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">السكرتير دوره تنظيمي وتوثيقي، ملوش علاقة بالجانب الفني التدريبي.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="true" data-rationale="المدرب هو أدرى واحد بتفاصيل لاعبيه، ومدير التخصص بيشرف على توافق ده مع السياسة العامة.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">مدير التخصص بالتعاون مع المدرب</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المدرب هو أدرى واحد بتفاصيل لاعبيه، ومدير التخصص بيشرف على توافق ده مع السياسة العامة.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="5">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 6 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">حسب المحاضرة، إمتى المفروض تخلص إجراءات حجز السفر والمعسكرات والاعتمادات المالية؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">التخطيط الإداري الناجح بيحتاج وقت كافي لمواجهة أي ظروف طارئة.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="مينفعش تسافر من غير ما تكون حاجز السكن والانتقالات مسبقاً.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">بعد الوصول لمكان المعسكر</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">مينفعش تسافر من غير ما تكون حاجز السكن والانتقالات مسبقاً.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="ده وقت ضيق جداً وممكن يحصل فيه مشاكل في الطيران أو التأشيرات تعطل السفر.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">قبل السفر بـ <span class="math">48</span> ساعة</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">ده وقت ضيق جداً وممكن يحصل فيه مشاكل في الطيران أو التأشيرات تعطل السفر.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="ده بيعرض البعثة للفشل الإداري الكامل والارتباك.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">يوم السفر الصبح</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">ده بيعرض البعثة للفشل الإداري الكامل والارتباك.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="true" data-rationale="الالتزام بمدة شهر بيضمن إن كل الأمور اللوجستية والمالية استقرت واللاعبين مركزين في التدريب.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">قبل موعد المغادرة بـ <span class="math">30</span> يوم على الأقل</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">الالتزام بمدة شهر بيضمن إن كل الأمور اللوجستية والمالية استقرت واللاعبين مركزين في التدريب.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="6">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 7 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">إيه هو التصرف الصحيح للمدير الفني بخصوص الأمور المالية والميزانية؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">ابعد نفسك عن الشبهات المالية وركز في شغلك الفني.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="true" data-rationale="دور المدير الفني هو تحديد &quot;إيه المطلوب&quot; فنيًا، والجهة المالية هي اللي بتنفذ الشراء والتعاقد.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">تقديم قائمة بالاحتياجات والمتطلبات للجنة المنتخبات</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">دور المدير الفني هو تحديد &quot;إيه المطلوب&quot; فنيًا، والجهة المالية هي اللي بتنفذ الشراء والتعاقد.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="ده بيخلق تضارب مصالح وممكن يعرض المدير الفني للمساءلة القانونية أو المالية.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">التفاوض المباشر مع الفنادق وشركات الملابس</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">ده بيخلق تضارب مصالح وممكن يعرض المدير الفني للمساءلة القانونية أو المالية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="الميزانية بتعتمد من جهات سيادية ووزارية ولا يمكن تغييرها بدون موافقات رسمية.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">تغيير ميزانية المعسكر من دماغه</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">الميزانية بتعتمد من جهات سيادية ووزارية ولا يمكن تغييرها بدون موافقات رسمية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="العمل في المنتخبات الوطنية عمل مؤسسي بيعتمد على ميزانيات الدولة والاتحاد.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">دفع مصاريف المعسكر من جيبه الخاص</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">العمل في المنتخبات الوطنية عمل مؤسسي بيعتمد على ميزانيات الدولة والاتحاد.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="7">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 8 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">إيه هو الحد الأدنى لسنوات الخبرة المطلوب توفرها في المدير الفني حسب المقترح؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">إدارة المنتخبات بتحتاج شخص &quot;عجن وخبز&quot; الملاعب لسنين طويلة.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="true" data-rationale="الخبرة الطويلة بتضمن إن المدير الفني مر بظروف وبطولات مختلفة وبقى عنده نضج فني.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text"><span class="math">10</span> سنوات في التدريب عالي الأداء</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">الخبرة الطويلة بتضمن إن المدير الفني مر بظروف وبطولات مختلفة وبقى عنده نضج فني.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="الخبرة كلاعب مهمة لكنها لا تغني عن الخبرة التدريبية والإدارية في المستوى العالي.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text"><span class="math">5</span> سنوات كلاعب ناشئ</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">الخبرة كلاعب مهمة لكنها لا تغني عن الخبرة التدريبية والإدارية في المستوى العالي.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="ده وقت لا يذكر في علم الإدارة الرياضية.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">شهر واحد في الإدارة الرياضية</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">ده وقت لا يذكر في علم الإدارة الرياضية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="سنتين غير كافية إطلاقاً لبناء خبرة في إدارة منظومة معقدة زي المنتخبات الوطنية.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">سنتين بس في التدريب</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">سنتين غير كافية إطلاقاً لبناء خبرة في إدارة منظومة معقدة زي المنتخبات الوطنية.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="8">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 9 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">في حالة إصابة لاعب، مين اللي له الكلمة الأخيرة في مشاركته في البطولة من عدمه؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">التخصص هو اللي بيحمي اللاعب من المخاطر الصحية.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="العلاقات العامة دورها إعلامي ملوش علاقة بالجاهزية الطبية للاعب.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">مدير العلاقات العامة</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">العلاقات العامة دورها إعلامي ملوش علاقة بالجاهزية الطبية للاعب.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="المدرب عاطفته ممكن تغلبه، لكن القرار لازم يكون مبني على أسس طبية.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">المدرب الشخصي للاعب</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المدرب عاطفته ممكن تغلبه، لكن القرار لازم يكون مبني على أسس طبية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="true" data-rationale="المنظومة الاحترافية بتحترم التخصص، والطبيب هو المسؤول عن سلامة اللاعب الجسدية.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">الطبيب بناءً على تقرير رسمي وبالتنسيق مع المدير الفني</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المنظومة الاحترافية بتحترم التخصص، والطبيب هو المسؤول عن سلامة اللاعب الجسدية.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="اللاعب دايماً بيبقى عايز يشارك، وممكن يخفي آلامه وده يعرضه لإصابة مزمنة.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">اللاعب نفسه لو قال إنه سليم</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">اللاعب دايماً بيبقى عايز يشارك، وممكن يخفي آلامه وده يعرضه لإصابة مزمنة.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      
+        <div class="question" data-index="9">
+          <div class="q-header">
+            <span class="q-number">🎯 سؤال 10 / 10</span>
+            <span class="streak" id="streak-badge"></span>
+          </div>
+          <div class="q-text">إيه هي الشهادة التدريبية (Level) اللي يفضل تتوفر في المدير الفني من الاتحاد الدولي؟</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">دي أعلى شهادة بيقدمها الاتحاد العالمي لألعاب القوى في التخصص.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="المستوى الأول مخصص لمدربين الفئات العمرية والأساسيات، مش لإدارة منتخبات.">
+            <span class="opt-emoji">🅰️</span>
+            <span class="opt-text">المستوى الأول (<span class="math">Level\ 1</span>)</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المستوى الأول مخصص لمدربين الفئات العمرية والأساسيات، مش لإدارة منتخبات.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="true" data-rationale="المستوى التالت هو أعلى مستوى تخصصي بيضمن إن المدير الفني ملم بأحدث علوم التدريب.">
+            <span class="opt-emoji">🅱️</span>
+            <span class="opt-text">المستوى الثالث (<span class="math">Level\ 3</span>)</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">المستوى التالت هو أعلى مستوى تخصصي بيضمن إن المدير الفني ملم بأحدث علوم التدريب.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="ده مستوى متوسط، والمدير الفني لازم يكون في قمة الهرم التعليمي للاتحاد الدولي.">
+            <span class="opt-emoji">🅲️</span>
+            <span class="opt-text">المستوى الثاني (<span class="math">Level\ 2</span>)</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">ده مستوى متوسط، والمدير الفني لازم يكون في قمة الهرم التعليمي للاتحاد الدولي.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="شهادة الحضور لا تعتبر مؤهل فني كافي لقيادة منظومة فنية كاملة.">
+            <span class="opt-emoji">🅳️</span>
+            <span class="opt-text">شهادة حضور ندوة إدارية</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">شهادة الحضور لا تعتبر مؤهل فني كافي لقيادة منظومة فنية كاملة.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">السؤال التالي ←</button>
+        </div>
+      </div>
+  <div class="results" id="results">
+    <h2>اكتمل الاختبار!</h2>
+    <div class="stars" id="stars"></div>
+    <div class="score" id="score">0%</div>
+    <div class="score-text" id="score-text"></div>
+    <button class="restart-btn" onclick="restart()">🔁 حاول مرة أخرى</button>
+  </div>
+</div>
+<script>
+const quizData = [{"question":"إيه هو الوصف الأدق لسلطة المدير الفني في الهيكل التنظيمي للاتحاد؟","hint":"فكر في الفرق بين اللي بيحط الرؤية والقرار (اللجنة) واللي بيطبقها في الملعب.","options":[{"label":"A","text":"سلطة استشارية ملوش دخل بالقرارات","isCorrect":false,"rationale":"المدير الفني له دور تنفيذي مباشر ومتابعة ميدانية، مش مجرد تقديم نصيحة."},{"label":"B","text":"سلطة تشريعية بتحدد قوانين اللعبة","isCorrect":false,"rationale":"القوانين الدولية للعبة هي اختصاص الاتحاد الدولي، مش المدير الفني الوطني."},{"label":"C","text":"مسؤول عن الشؤون المالية والإدارية فقط","isCorrect":false,"rationale":"رغم وجود مهام إدارية، إلا أن جوهر عمله فني وتدريبي في المقام الأول."},{"label":"D","text":"أعلى سلطة تنفيذية في الجهاز الفني","isCorrect":true,"rationale":"المدير الفني هو المسؤول عن تنفيذ قرارات وتوصيات لجنة المنتخبات على أرض الواقع مع المدربين."}]},{"question":"في المنظومة الاحترافية، المدرب أو مساعد المدرب المفروض يتواصل مع مين بشكل مباشر؟","hint":"التدرج الوظيفي هو أساس أي منظومة ناجحة عشان ميبقاش فيه ضغط على شخص واحد.","options":[{"label":"A","text":"مدير التخصص (زي رئيس جهاز السرعة)","isCorrect":true,"rationale":"التدرج الإداري بيتطلب إن المدرب يرجع لمدير تخصصه الأول، ومدير التخصص هو اللي بيرفع للمدير الفني."},{"label":"B","text":"رئيس الاتحاد مباشرة","isCorrect":false,"rationale":"التواصل المباشر مع رئيس الاتحاد بيتخطى التسلسل الإداري الفني وبيعمل فوضى في الإدارة."},{"label":"C","text":"اللجنة الأولمبية","isCorrect":false,"rationale":"اللجنة الأولمبية جهة خارجية بالنسبة للهيكل الداخلي الفني للاتحاد."},{"label":"D","text":"المدير الفني العام فوراً","isCorrect":false,"rationale":"المدير الفني العام بيتعامل مع رؤساء التخصصات لضمان انسيابية العمل وتوزيع المهام."}]},{"question":"ليه مركز الموهوبين ($Talent Identification Center$) بيعتبر من أخطر وأهم مسؤوليات المدير الفني؟","hint":"فكر في فكرة \"البذرة\" اللي بنزرعها عشان نحصدها بعد سنين.","options":[{"label":"A","text":"لأنه المصدر الأساسي لنواة المنتخبات الوطنية في المستقبل","isCorrect":true,"rationale":"اختيار الموهوبين بشكل صح هو اللي بيضمن استمرارية نجاح المنتخبات على المدى الطويل."},{"label":"B","text":"عشان هو المسؤول عن تنظيم الحفلات","isCorrect":false,"rationale":"المهام الاجتماعية مش من صلب اختصاصات المدير الفني الفنية."},{"label":"C","text":"عشان بيقلل عدد المدربين في الاتحاد","isCorrect":false,"rationale":"بالعكس، مراكز الموهوبين بتحتاج مدربين متخصصين في الفئات العمرية الصغيرة."},{"label":"D","text":"لأنه بيختص بتدريب فئة الرجال فقط","isCorrect":false,"rationale":"مركز الموهوبين بيركز على الأعمار الصغيرة لاكتشافهم بدري، مش فئة النخبة الجاهزة."}]},{"question":"إيه هي أهم مهارة لازم تتوفر في المدير الفني عشان يحقق أهداف طويلة المدى؟","hint":"المدير الفني هو \"مهندس\" العملية التدريبية اللي بيشوف الصورة من فوق.","options":[{"label":"A","text":"إجادة التصوير الفوتوغرافي للاعبين","isCorrect":false,"rationale":"الإعلام له لجنته الخاصة، والمدير الفني تركيزه لازم يكون على تطوير الأداء."},{"label":"B","text":"التخطيط الاستراتيجي والرؤية المستقبلية","isCorrect":true,"rationale":"بدون رؤية لـ $4$ أو $8$ سنين قدام، المدير الفني مش هيقدر يوصل لمنصات التتويج العالمية."},{"label":"C","text":"القدرة على إصلاح الأدوات الرياضية بنفسه","isCorrect":false,"rationale":"دي مهمة فنية لوجستية بسيطة مش هي اللي بتحدد نجاح المنظومة الفنية."},{"label":"D","text":"القوة البدنية العالية","isCorrect":false,"rationale":"المدير الفني مش مطلوب منه ينافس كلاعب، مهاراته لازم تكون قيادية وفكرية."}]},{"question":"مين المسؤول عن وضع التفاصيل الدقيقة داخل الخطة السنوية (زي الوحدات التدريبية اليومية)؟","hint":"فكر في الشخص اللي موجود في الملعب كل يوم مع اللاعب.","options":[{"label":"A","text":"طبيب الفريق","isCorrect":false,"rationale":"الطبيب بيقدم توصيات طبية، لكنه مش هو اللي بيصمم الأحمال التدريبية."},{"label":"B","text":"المدير الفني العام وحده","isCorrect":false,"rationale":"المدير الفني بيحط الخطوط العريضة والأهداف العامة، لكن التفاصيل مهمة المدربين."},{"label":"C","text":"السكرتير الإداري للاتحاد","isCorrect":false,"rationale":"السكرتير دوره تنظيمي وتوثيقي، ملوش علاقة بالجانب الفني التدريبي."},{"label":"D","text":"مدير التخصص بالتعاون مع المدرب","isCorrect":true,"rationale":"المدرب هو أدرى واحد بتفاصيل لاعبيه، ومدير التخصص بيشرف على توافق ده مع السياسة العامة."}]},{"question":"حسب المحاضرة، إمتى المفروض تخلص إجراءات حجز السفر والمعسكرات والاعتمادات المالية؟","hint":"التخطيط الإداري الناجح بيحتاج وقت كافي لمواجهة أي ظروف طارئة.","options":[{"label":"A","text":"بعد الوصول لمكان المعسكر","isCorrect":false,"rationale":"مينفعش تسافر من غير ما تكون حاجز السكن والانتقالات مسبقاً."},{"label":"B","text":"قبل السفر بـ $48$ ساعة","isCorrect":false,"rationale":"ده وقت ضيق جداً وممكن يحصل فيه مشاكل في الطيران أو التأشيرات تعطل السفر."},{"label":"C","text":"يوم السفر الصبح","isCorrect":false,"rationale":"ده بيعرض البعثة للفشل الإداري الكامل والارتباك."},{"label":"D","text":"قبل موعد المغادرة بـ $30$ يوم على الأقل","isCorrect":true,"rationale":"الالتزام بمدة شهر بيضمن إن كل الأمور اللوجستية والمالية استقرت واللاعبين مركزين في التدريب."}]},{"question":"إيه هو التصرف الصحيح للمدير الفني بخصوص الأمور المالية والميزانية؟","hint":"ابعد نفسك عن الشبهات المالية وركز في شغلك الفني.","options":[{"label":"A","text":"تقديم قائمة بالاحتياجات والمتطلبات للجنة المنتخبات","isCorrect":true,"rationale":"دور المدير الفني هو تحديد \"إيه المطلوب\" فنيًا، والجهة المالية هي اللي بتنفذ الشراء والتعاقد."},{"label":"B","text":"التفاوض المباشر مع الفنادق وشركات الملابس","isCorrect":false,"rationale":"ده بيخلق تضارب مصالح وممكن يعرض المدير الفني للمساءلة القانونية أو المالية."},{"label":"C","text":"تغيير ميزانية المعسكر من دماغه","isCorrect":false,"rationale":"الميزانية بتعتمد من جهات سيادية ووزارية ولا يمكن تغييرها بدون موافقات رسمية."},{"label":"D","text":"دفع مصاريف المعسكر من جيبه الخاص","isCorrect":false,"rationale":"العمل في المنتخبات الوطنية عمل مؤسسي بيعتمد على ميزانيات الدولة والاتحاد."}]},{"question":"إيه هو الحد الأدنى لسنوات الخبرة المطلوب توفرها في المدير الفني حسب المقترح؟","hint":"إدارة المنتخبات بتحتاج شخص \"عجن وخبز\" الملاعب لسنين طويلة.","options":[{"label":"A","text":"$10$ سنوات في التدريب عالي الأداء","isCorrect":true,"rationale":"الخبرة الطويلة بتضمن إن المدير الفني مر بظروف وبطولات مختلفة وبقى عنده نضج فني."},{"label":"B","text":"$5$ سنوات كلاعب ناشئ","isCorrect":false,"rationale":"الخبرة كلاعب مهمة لكنها لا تغني عن الخبرة التدريبية والإدارية في المستوى العالي."},{"label":"C","text":"شهر واحد في الإدارة الرياضية","isCorrect":false,"rationale":"ده وقت لا يذكر في علم الإدارة الرياضية."},{"label":"D","text":"سنتين بس في التدريب","isCorrect":false,"rationale":"سنتين غير كافية إطلاقاً لبناء خبرة في إدارة منظومة معقدة زي المنتخبات الوطنية."}]},{"question":"في حالة إصابة لاعب، مين اللي له الكلمة الأخيرة في مشاركته في البطولة من عدمه؟","hint":"التخصص هو اللي بيحمي اللاعب من المخاطر الصحية.","options":[{"label":"A","text":"مدير العلاقات العامة","isCorrect":false,"rationale":"العلاقات العامة دورها إعلامي ملوش علاقة بالجاهزية الطبية للاعب."},{"label":"B","text":"المدرب الشخصي للاعب","isCorrect":false,"rationale":"المدرب عاطفته ممكن تغلبه، لكن القرار لازم يكون مبني على أسس طبية."},{"label":"C","text":"الطبيب بناءً على تقرير رسمي وبالتنسيق مع المدير الفني","isCorrect":true,"rationale":"المنظومة الاحترافية بتحترم التخصص، والطبيب هو المسؤول عن سلامة اللاعب الجسدية."},{"label":"D","text":"اللاعب نفسه لو قال إنه سليم","isCorrect":false,"rationale":"اللاعب دايماً بيبقى عايز يشارك، وممكن يخفي آلامه وده يعرضه لإصابة مزمنة."}]},{"question":"إيه هي الشهادة التدريبية (Level) اللي يفضل تتوفر في المدير الفني من الاتحاد الدولي؟","hint":"دي أعلى شهادة بيقدمها الاتحاد العالمي لألعاب القوى في التخصص.","options":[{"label":"A","text":"المستوى الأول ($Level\\ 1$)","isCorrect":false,"rationale":"المستوى الأول مخصص لمدربين الفئات العمرية والأساسيات، مش لإدارة منتخبات."},{"label":"B","text":"المستوى الثالث ($Level\\ 3$)","isCorrect":true,"rationale":"المستوى التالت هو أعلى مستوى تخصصي بيضمن إن المدير الفني ملم بأحدث علوم التدريب."},{"label":"C","text":"المستوى الثاني ($Level\\ 2$)","isCorrect":false,"rationale":"ده مستوى متوسط، والمدير الفني لازم يكون في قمة الهرم التعليمي للاتحاد الدولي."},{"label":"D","text":"شهادة حضور ندوة إدارية","isCorrect":false,"rationale":"شهادة الحضور لا تعتبر مؤهل فني كافي لقيادة منظومة فنية كاملة."}]}];
+const tr = {"correct":"صحيح!","incorrect":"خطأ","next":"السؤال التالي ←","seeResults":"عرض النتائج","complete":"اكتمل الاختبار!","scoreText":"أجبت {correct} من {total} بشكل صحيح","tryAgain":"حاول مرة أخرى","rightAnswer":"إجابة صحيحة","notQuite":"ليس تماماً"};
+let currentQ = 0, correctCount = 0, streak = 0, answered = false;
+const CONFETTI_COLORS = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#1dd1a1'];
+
+function init() {
+  document.querySelectorAll('.question').forEach((q, i) => q.classList.toggle('active', i === 0));
+  updateProgress();
+  updateStreakBadge();
+  document.querySelectorAll('.option').forEach(opt => opt.addEventListener('click', () => selectOption(opt)));
+  document.querySelectorAll('.next-btn').forEach(btn => btn.addEventListener('click', nextQuestion));
+}
+
+function updateStreakBadge() {
+  const badge = document.getElementById('streak-badge');
+  if (!badge) return;
+  badge.textContent = streak >= 2 ? ('🔥 ' + streak) : '';
+}
+
+function burstConfetti() {
+  for (let i = 0; i < 24; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+    piece.style.animationDuration = (1.6 + Math.random() * 1.2) + 's';
+    document.body.appendChild(piece);
+    setTimeout(() => piece.remove(), 3000);
+  }
+}
+
+function selectOption(opt) {
+  if (answered) return;
+  answered = true;
+  const q = opt.closest('.question');
+  const options = q.querySelectorAll('.option');
+  const nextBtn = q.querySelector('.next-btn');
+  const isCorrect = opt.dataset.correct === 'true';
+
+  options.forEach(o => o.classList.add('disabled'));
+  opt.classList.add('selected', isCorrect ? 'correct' : 'incorrect');
+
+  if (!isCorrect) {
+    const correctOpt = [...options].find(o => o.dataset.correct === 'true');
+    if (correctOpt) correctOpt.classList.add('show-correct');
+  }
+
+  if (isCorrect) { correctCount++; streak++; burstConfetti(); } else { streak = 0; }
+  updateStreakBadge();
+
+  options.forEach(o => {
+    const wrapper = o.closest('.option-wrapper');
+    const feedback = wrapper.querySelector('.option-feedback');
+    const rationale = o.dataset.rationale;
+    const isThisCorrect = o.dataset.correct === 'true';
+
+    if (rationale && rationale.trim()) {
+      feedback.classList.remove('hidden');
+      feedback.classList.add(isThisCorrect ? 'correct-feedback' : 'incorrect-feedback');
+      const statusEl = feedback.querySelector('.feedback-status');
+      statusEl.className = 'feedback-status ' + (isThisCorrect ? 'correct' : 'incorrect');
+      statusEl.innerHTML = isThisCorrect ? ('🎉 ' + tr.rightAnswer) : ('😅 ' + tr.notQuite);
+    }
+  });
+
+  nextBtn.classList.remove('hidden');
+  if (currentQ === quizData.length - 1) nextBtn.textContent = '🏁 ' + tr.seeResults;
+}
+
+function nextQuestion() {
+  answered = false;
+  currentQ++;
+  if (currentQ >= quizData.length) { showResults(); return; }
+  document.querySelectorAll('.question').forEach((q, i) => q.classList.toggle('active', i === currentQ));
+  updateProgress();
+  updateStreakBadge();
+}
+
+function updateProgress() {
+  document.querySelector('.progress-fill').style.width = (currentQ / quizData.length * 100) + '%';
+}
+
+function showResults() {
+  document.querySelectorAll('.question').forEach(q => q.classList.remove('active'));
+  document.getElementById('results').classList.add('active');
+  const pct = Math.round((correctCount / quizData.length) * 100);
+  const starCount = Math.max(1, Math.round(pct / 20));
+  document.getElementById('stars').textContent = '⭐'.repeat(starCount) + '☆'.repeat(5 - starCount);
+  document.getElementById('score').textContent = pct + '%';
+  document.getElementById('score-text').textContent = tr.scoreText.replace('{correct}', correctCount).replace('{total}', quizData.length);
+  document.querySelector('.progress-fill').style.width = '100%';
+  if (pct >= 80) burstConfetti();
+}
+
+function restart() {
+  currentQ = 0; correctCount = 0; streak = 0; answered = false;
+  document.getElementById('results').classList.remove('active');
+  document.querySelectorAll('.question').forEach((q, i) => {
+    q.classList.toggle('active', i === 0);
+    q.querySelectorAll('.option').forEach(o => o.classList.remove('selected', 'correct', 'incorrect', 'disabled', 'show-correct'));
+    q.querySelectorAll('.option-feedback').forEach(f => {
+      f.classList.add('hidden');
+      f.classList.remove('correct-feedback', 'incorrect-feedback');
+    });
+    const btn = q.querySelector('.next-btn');
+    btn.classList.add('hidden');
+    btn.textContent = tr.next;
+  });
+  updateProgress();
+  updateStreakBadge();
+}
+
+init();
+</script>
+</body>
+</html>
